@@ -51,6 +51,30 @@ dsh plugin --profile web add <package>
 dsh plugin --profile web add github:<repo>
 ```
 
+## DeepSeek Harness runtime
+
+This repository is a fork of [Easyhoov/deepseek-harness-desktop-windows](https://github.com/Easyhoov/deepseek-harness-desktop-windows) with one job: keep the **bundled DSH runtime** current. The Electron shell is kept 1:1.
+
+| Item | Value |
+|---|---|
+| Tested DSH version | `0.1.5-rc.2` (pinned exactly — not `latest`) |
+| Supported channels | `latest` + `next` (the RC line); `alpha` by manual opt-in only |
+| Bundled fallback version | `0.1.5-rc.2` (ships with the app, always available) |
+| Version manifest | [`dsh-runtime.json`](dsh-runtime.json) |
+
+DSH publishes **prereleases only** — there is no stable release yet. Note that the `latest` dist-tag can trail `next`: right now `latest` = `0.1.5-rc.1` while `next` = `0.1.5-rc.2`. Versions are therefore compared with real semver across channels instead of trusting a single tag.
+
+Updating:
+
+```sh
+npm run check:dsh-update                              # check (semver, across channels)
+npm run bump:dsh -- --version <version> --channel next # coordinated bump
+npm run tests && npm run smoke                        # verify
+npm run dist                                          # build
+```
+
+The `@deepseek-ai/dsh*` family must move **together** — bumping a single member breaks the loader at boot. Where the compatibility layer lives, and every per-version adaptation, is documented in [docs/DSH_RUNTIME.md](docs/DSH_RUNTIME.md).
+
 ## Download
 
 | Artifact | Notes |
@@ -59,7 +83,7 @@ dsh plugin --profile web add github:<repo>
 | `DeepSeek-Harness-Desktop-Portable-<version>.exe` | Portable |
 | `latest.yml` | Auto-update metadata, published beside the installers on every Release |
 
-Get the latest builds from [GitHub Releases](https://github.com/Easyhoov/deepseek-harness-desktop-windows/releases) (Windows 10/11, x64; built by GitHub Actions on every `v*` tag). **Not code-signed** — SmartScreen will ask; signing is wired via `CSC_LINK` / `CSC_KEY_PASSWORD`.
+Get the latest builds from [GitHub Releases](https://github.com/perejaslav/DeepSeek-Harness-Desktop-Portable/releases) (Windows 10/11, x64; built by GitHub Actions on every `v*` tag). **Not code-signed** — SmartScreen will ask; signing is wired via `CSC_LINK` / `CSC_KEY_PASSWORD`.
 
 ## Quick start
 

@@ -51,6 +51,30 @@ dsh plugin --profile web add <包名>
 dsh plugin --profile web add github:<仓库>
 ```
 
+## DeepSeek Harness 运行时
+
+本仓库是 [Easyhoov/deepseek-harness-desktop-windows](https://github.com/Easyhoov/deepseek-harness-desktop-windows) 的 fork，只做一件事：把**内置的 DSH 运行时**保持在当前版本，Electron 外壳 1:1 保留。
+
+| 项目 | 值 |
+|---|---|
+| 已验证 DSH 版本 | `0.1.5-rc.2`（精确锁定，不是 `latest`） |
+| 支持的渠道 | `latest` + `next`（RC 线）；`alpha` 仅手动启用 |
+| 内置回退版本 | `0.1.5-rc.2`（随应用分发，始终可用） |
+| 版本清单 | [`dsh-runtime.json`](dsh-runtime.json) |
+
+DSH 目前**只发布预发布版本**，没有稳定版。注意 `latest` 标签可能落后于 `next`——当前 `latest` = `0.1.5-rc.1`，`next` = `0.1.5-rc.2`。所以版本比较用 semver 跨渠道取最高值，而不是信任单个 dist-tag。
+
+升级流程：
+
+```sh
+npm run check:dsh-update                              # 检查（semver，跨渠道）
+npm run bump:dsh -- --version <版本> --channel next    # 整体升级（全家桶必须同步）
+npm run tests && npm run smoke                        # 验证
+npm run dist                                          # 构建
+```
+
+`@deepseek-ai/dsh*` 必须**整组同步**升级：只升其中一个会导致启动时 loader 报错。兼容层位置与每个版本适配点见 [docs/DSH_RUNTIME.md](docs/DSH_RUNTIME.md)。
+
 ## 下载
 
 | 产物 | 说明 |
@@ -59,7 +83,7 @@ dsh plugin --profile web add github:<仓库>
 | `DeepSeek-Harness-Desktop-Portable-<版本>.exe` | 便携版 |
 | `latest.yml` | 自动更新元数据，随每个 Release 发布 |
 
-最新构建：[GitHub Releases](https://github.com/Easyhoov/deepseek-harness-desktop-windows/releases)（Windows 10/11，x64，GitHub Actions 在每个 `v*` 标签构建）。**未做代码签名**，SmartScreen 会提示；签名已通过 `CSC_LINK` / `CSC_KEY_PASSWORD` 预留。
+最新构建：[GitHub Releases](https://github.com/perejaslav/DeepSeek-Harness-Desktop-Portable/releases)（Windows 10/11，x64，GitHub Actions 在每个 `v*` 标签构建）。**未做代码签名**，SmartScreen 会提示；签名已通过 `CSC_LINK` / `CSC_KEY_PASSWORD` 预留。
 
 ## 快速开始
 
@@ -78,10 +102,12 @@ dsh plugin --profile web add github:<仓库>
 ```sh
 npm ci
 npm start       # 开发运行
+npm run tests   # 兼容性测试
+npm run smoke   # 真实启动冒烟测试（使用临时 DSH 目录，不触碰 ~/.dsh）
 npm run dist    # 构建安装包（输出到 release/）
 ```
 
 ## 更多
 
-- [更新日志](CHANGELOG.md) · [English](README_en.md)
-- 问题与建议：在 [Issues](https://github.com/Easyhoov/deepseek-harness-desktop-windows/issues) 反馈
+- [更新日志](CHANGELOG.md) · [English](README_en.md) · [运行时架构](docs/DSH_RUNTIME.md)
+- 问题与建议：在 [Issues](https://github.com/perejaslav/DeepSeek-Harness-Desktop-Portable/issues) 反馈

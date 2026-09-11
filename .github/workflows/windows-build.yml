@@ -1,22 +1,33 @@
-name: release
+name: windows-build
 
-# Publishes a GitHub Release from a version tag. Nothing here runs on ordinary
-# pushes — `windows-build.yml` covers that — and the release is gated on the
-# full test suite plus a real boot of the app (ТЗ §23: never publish when the
-# tests did not pass).
+# Builds the Windows installers and keeps them as workflow artifacts (ТЗ §23).
+# This is the "can we still ship?" job — it runs on demand and on every push to
+# the default branch, but it never publishes a GitHub Release. Publishing is the
+# release workflow's job, and only from a version tag.
+#
+# The full test suite and the boot smoke test run first, so a red artifact set
+# is impossible: `npm run dist` is only reached once the app has actually booted
+# on the pinned DSH runtime.
 
 on:
+  workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+      - master
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    name: build installers
     runs-on: windows-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
 
@@ -24,15 +35,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-
-      - name: Check tag matches package version
-        shell: pwsh
-        run: |
-          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          if ($env:GITHUB_REF_NAME -ne "v$v") {
-            throw "tag '$env:GITHUB_REF_NAME' does not match package.json version 'v$v'"
-          }
-          Write-Output "building version $v"
 
       - name: Install dependencies
         env:
@@ -58,11 +60,13 @@ jobs:
         shell: pwsh
         run: Get-ChildItem release -File | Select-Object Name, @{N='MB';E={[math]::Round($_.Length/1MB,1)}} | Format-Table -AutoSize
 
-      - name: Publish Release
-        uses: softprops/action-gh-release@v3
+      - name: Upload installers
+        uses: actions/upload-artifact@v7
         with:
-          files: |
+          name: windows-installers
+          if-no-files-found: error
+          retention-days: 14
+          path: |
             release/*.exe
             release/*.exe.blockmap
             release/*.yml
-          generate_release_notes: true

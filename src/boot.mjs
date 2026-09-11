@@ -235,7 +235,10 @@ export async function bootDesktop({ webServer, directoryPicker, desktopUi, overl
 	const anchor = overlayAnchor !== undefined && overlayAnchor !== '' && existsSync(overlayAnchor)
 		? overlayAnchor
 		: INSTALL_ANCHOR;
-	healProfilesModuleFallback(anchor);
+	// dsh >= 0.1.5-rc.2 changed this from sync `(installAnchor, home)` to
+	// async `({ installAnchor, profile?, home? })`; the fallback junctions are
+	// still the shared ones, so the anchor is the only option we pass.
+	await healProfilesModuleFallback({ installAnchor: anchor });
 	// Heal a manifest that is ahead of its node_modules (interrupted pnpm,
 	// non-bundle listed as a bundle) before loadProfile fails loud on it.
 	await healProfileBundles(anchor, { logLine });
@@ -283,6 +286,11 @@ export async function bootDesktop({ webServer, directoryPicker, desktopUi, overl
 		hostCtx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, loadLayeredEnv(NAME));
 		provideCmdline(hostCtx, { args: [], exit: (code) => void onExit(code) });
 		hostCtx.provide('webServer', webServer);
+		// The stub is built before the composition exists, so it cannot know the
+		// context it must emit `webserver/index-inject` on. Hand it over here,
+		// next to the provide call, so index rendering works from the first
+		// request (dsh >= 0.1.5-rc.2 renders the index from that event table).
+		webServer.attachContext?.(hostCtx);
 		hostCtx.provide('directoryPicker', directoryPicker);
 		hostCtx.provide('desktopUi', desktopUi);
 	}).catch((error) => {

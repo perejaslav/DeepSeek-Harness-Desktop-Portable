@@ -6,7 +6,11 @@ import z from "schemastery";
 import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { SettingsConflictError, settingsNamespace } from "@deepseek-ai/dsh-settings";
+// Desktop adaptation (dsh 0.1.5-rc.2): `settingsNamespace` was a pure
+// validator in 0.1.0-rc.6 (pattern check + passthrough) and is no longer
+// exported. The namespace constant is already lowercase kebab-case, and the
+// settings service validates it on register, so it is passed through directly.
+import { SettingsConflictError } from "@deepseek-ai/dsh-settings";
 import { chmodSync, existsSync } from "node:fs";
 import { userInfo } from "node:os";
 import { defineTool } from "@deepseek-ai/dsh-tools";
@@ -2326,7 +2330,7 @@ function apply(ctx, config) {
 		}
 	};
 	ctx.inject(["settings"], (sctx) => {
-		const ns = settingsNamespace(SIDEBAR_PREFS_NS);
+		const ns = SIDEBAR_PREFS_NS;
 		const scope = sctx.settings.register(ns, PrefsSchema);
 		const viewOf = () => {
 			const descriptor = sctx.settings.describe({ redactSecrets: true }).find((candidate) => candidate.ns === ns);

@@ -1,7 +1,7 @@
 {
   "name": "dsh-desktop",
   "productName": "DeepSeek Harness Desktop",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "DeepSeek Harness as a desktop app: host boots in-process inside Electron, the built frontend loads locally, and API plus event traffic crosses an IPC bridge (no port, no local HTTP server).",
   "type": "module",
   "main": "src/main.mjs",
@@ -11,32 +11,38 @@
     "predist": "node scripts/apply-official-patches.mjs",
     "start": "electron .",
     "dist": "electron-builder --win",
-    "dist:dir": "electron-builder --dir"
+    "dist:dir": "electron-builder --dir",
+    "test": "node --test --test-force-exit \"tests/**/*.test.mjs\"",
+    "tests": "node --test --test-force-exit \"tests/**/*.test.mjs\"",
+    "smoke": "node scripts/smoke-boot.mjs",
+    "check:dsh-update": "node scripts/check-dsh-update.mjs",
+    "bump:dsh": "node scripts/bump-dsh-version.mjs"
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.0-rc.6",
+    "@deepseek-ai/dsh": "0.1.5-rc.2",
     "electron-updater": "^6.8.9",
     "npm": "^10.9.9",
     "pnpm": "^10.34.5",
-    "@deepseek-ai/cordis-plugin-group": "1.0.1",
-    "@deepseek-ai/dsh-anonymous-user-id": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-bash-local": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-code-runtime": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-compaction": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-fs": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-output-retention": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-sandbox": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-scope": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-session-telemetry": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-session-title-llm": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-shell": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-spill": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-subagent-in-process-driver": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-subprocess": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-timeout": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-workflow": "0.1.0-rc.6"
+    "@deepseek-ai/cordis-plugin-group": "1.0.2",
+    "@deepseek-ai/dsh-anonymous-user-id": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-atomic-write": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-bash-local": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-code-runtime": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-compaction": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-fs": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-invariants": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-output-retention": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-sandbox": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-scope": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-session-telemetry": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-session-title-llm": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-shell": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-spill": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-subagent-in-process-driver": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-subprocess": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-timeout": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-workflow": "0.1.5-rc.2"
   },
   "devDependencies": {
     "electron": "^37.0.0",
@@ -55,6 +61,8 @@
       "src/**",
       "assets/**",
       "plugins/**",
+      "!plugins/*/node_modules",
+      "!plugins/*/node_modules/**",
       "package.json"
     ],
     "win": {
@@ -78,7 +86,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://github.com/Easyhoov/deepseek-harness-desktop-windows/releases/latest/download"
+        "url": "https://github.com/perejaslav/DeepSeek-Harness-Desktop-Portable/releases/latest/download"
       }
     ],
     "directories": {

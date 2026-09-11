@@ -1,0 +1,10 @@
+{
+  "$comment": "Identity of the DeepSeek Harness runtime this desktop build bundles. Written by scripts/bump-dsh-version.mjs and read by scripts/check-dsh-update.mjs plus docs/CI. The authoritative per-package pins live in package.json; this file records which of them is the tracked upstream runtime and on which channel it was taken, so workflows never have to guess.",
+  "package": "@deepseek-ai/dsh",
+  "version": "0.1.5-rc.2",
+  "channel": "next",
+  "source": "npm",
+  "tested": true,
+  "upstream": "https://www.npmjs.com/package/@deepseek-ai/dsh",
+  "note": "DSH has no stable (non-prerelease) publication yet, so 0.1.5-rc.2 is itself a prerelease. It was selected by semver comparison across the latest and next dist-tags, not by trusting a single tag: `latest` currently points at 0.1.5-rc.1, which is OLDER than `next` = 0.1.5-rc.2."
+}

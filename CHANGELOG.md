@@ -4,6 +4,33 @@ All notable changes to DeepSeek Harness Desktop are documented here.
 Versioning follows the `package.json` version; GitHub Actions builds and
 publishes a Release (NSIS + portable + `latest.yml`) on every `v*` tag.
 
+## [0.6.3] — 2026-09-11
+
+Bundled DeepSeek Harness runtime: **`0.1.0-rc.6` → `0.1.5-rc.2`**.
+
+### Changed
+
+- **Updated the bundled DSH runtime to `0.1.5-rc.2`.** Every `@deepseek-ai/dsh*` and `@deepseek-ai/cordis*` pin moved together — mixing versions in the family breaks the loader at boot. `@deepseek-ai/cordis` resolves to `4.0.2`, and `@deepseek-ai/cordis-plugin-group` to `1.0.2` (the newest companion compatible with that cordis). The Electron shell is unchanged.
+- **Vendored `dsh-better-sidebar` peer ranges repinned to `^0.1.5-rc.2`.** The old `^0.1.0-rc.6` ranges do not resolve to `0.1.5-rc.2`: a prerelease range only matches the same `major.minor.patch` tuple.
+
+### Added
+
+- **DSH compatibility layer** for the 0.1.5-rc.2 API changes (full detail in [`docs/DSH_RUNTIME.md`](docs/DSH_RUNTIME.md)):
+  - `healProfilesModuleFallback` became async and takes a single options object.
+  - Index rendering moved from raw `tapIndex` transforms to a structured `webserver/index-inject` row table, so the in-process webServer stub now implements `collectIndexInjections()` / `renderIndex()`. Without this the main process still reached `ready` while the renderer died with `window.__ModuleLoader__ bootstrap facade is missing` — a blank window.
+  - Client bundles are advertised as a combined `/plugins/??a/client.js,b/client.js&rev=…` request, which must stay absolute under `app://` so the `/plugins` prefix route can serve it.
+  - `@deepseek-ai/dsh-settings` no longer exports `settingsNamespace`; the vendored sidebar passes its already-validated namespace through directly.
+- **Automated upstream version checks** (`scripts/check-dsh-update.mjs` + `.github/workflows/check-dsh-update.yml`): a daily semver comparison across the `latest` and `next` channels (with opt-in `alpha`), followed by a coordinated bump, the test suite, a boot smoke test, and a review PR. Auto-merge is deliberately off.
+- **`scripts/bump-dsh-version.mjs`** — the only supported way to move the runtime. It updates every DSH pin, the cordis companions, the vendored plugins' peer ranges and `dsh-runtime.json`, then refreshes the lockfile with `npm install --package-lock-only`.
+- **`dsh-runtime.json`** — the runtime manifest that CI, the docs and the update check read.
+- **Windows compatibility CI**: `.github/workflows/ci.yml` (fast-ci + windows-integration) and `windows-build.yml` (installers as artifacts). The release workflow is now gated — `npm run dist` runs only after the tests and a real boot succeed, and the packaged runtime version is verified against the manifest before publishing.
+- **Compatibility tests** (`tests/compat.test.mjs`) and a hermetic boot smoke test (`scripts/smoke-boot.mjs`, `npm run smoke`). The smoke test asserts the app reaches `ready` on the pinned runtime with **no renderer errors**, against a throwaway DSH home, so `~/.dsh` is never read or written.
+- **Safe DSH update/rollback path**: the bundled runtime remains a permanent fallback, and a user-level runtime overlay can be rolled back from the app.
+
+### Removed
+
+- **The `dsh-tool-bash-persistent` patch is upstream now** — retired per the patch audit (KEEP / ADAPT / REMOVE / UPSTREAM FIXED), replaced by an assertion that reports loudly if the upstream fix regresses.
+
 ## [0.6.2] — 2026-08-19
 
 ### Changed
