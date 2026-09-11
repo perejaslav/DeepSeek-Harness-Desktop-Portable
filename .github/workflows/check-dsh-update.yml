@@ -39,9 +39,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -88,7 +88,7 @@ jobs:
 
       - name: Open the review PR
         if: steps.check.outputs.update_available == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: chore/dsh-${{ steps.check.outputs.target }}
           delete-branch: true
