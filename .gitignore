@@ -1,5 +1,11 @@
 node_modules/
 release/
+# electron-builder output directories. `release/` is the configured default; the
+# others are ad-hoc targets used when a previously locked output directory could
+# not be cleared (see docs/DSH_RUNTIME.md §11).
+release-*/
+out-*/
+dist-new/
 *.log
 .DS_Store
 Thumbs.db

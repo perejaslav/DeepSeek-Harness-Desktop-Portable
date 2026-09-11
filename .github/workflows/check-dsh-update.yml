@@ -1,0 +1,101 @@
+name: check-dsh-update
+
+# Tracks new DeepSeek Harness releases and opens a review PR (ТЗ §24–§29).
+#
+# Design notes:
+#   - Runs on windows-latest so the boot smoke test can actually launch
+#     Electron; the check itself is platform independent, but the point of the
+#     PR is to prove the *new* runtime boots, and that needs a real session.
+#   - `latest` and `next` (the RC line) are eligible by default. `alpha` is only
+#     considered when the manual `include_prerelease` input is set (§26).
+#   - AUTO MERGE = OFF (§28). The PR is always left for a human: DSH only ships
+#     prereleases, and a coordinated bump can carry breaking changes that no
+#     automated check can fully vet.
+#   - If npm has the version but GitHub has no matching release yet, the PR body
+#     says so explicitly instead of failing (§29).
+
+on:
+  schedule:
+    # 05:17 UTC daily — off the hour so it does not queue behind other crons.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      include_prerelease:
+        description: 'Also consider the alpha channel (opens a PR that must not be auto-merged)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: check-dsh-update
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: check upstream
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        env:
+          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+        run: npm ci
+
+      - name: Check for a newer runtime
+        id: check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $args = @()
+          if ('${{ inputs.include_prerelease }}' -eq 'true') { $args += '--include-prerelease' }
+          node scripts/check-dsh-update.mjs @args
+
+      - name: Bump the coordinated pins
+        if: steps.check.outputs.update_available == 'true'
+        run: node scripts/bump-dsh-version.mjs --version "${{ steps.check.outputs.target }}" --channel "${{ steps.check.outputs.target_channel }}"
+
+      - name: Tests
+        if: steps.check.outputs.update_available == 'true'
+        run: npm run tests
+
+      - name: Boot smoke test on the new runtime
+        if: steps.check.outputs.update_available == 'true'
+        run: npm run smoke
+
+      - name: Note the prerelease caveat
+        if: steps.check.outputs.update_available == 'true' && steps.check.outputs.prerelease == 'true'
+        shell: pwsh
+        run: |
+          Add-Content dsh-update-pr-body.md @'
+
+          ---
+
+          **This PR targets the `alpha` channel.** Alpha builds are the least
+          settled line DSH publishes. Do not merge without exercising the app
+          manually, and never enable auto-merge for it (ТЗ §26, §28).
+          '@
+
+      - name: Open the review PR
+        if: steps.check.outputs.update_available == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/dsh-${{ steps.check.outputs.target }}
+          delete-branch: true
+          title: 'chore: update DeepSeek Harness to ${{ steps.check.outputs.target }}'
+          body-path: dsh-update-pr-body.md
+          commit-message: 'chore: update DeepSeek Harness to ${{ steps.check.outputs.target }}'
+          labels: |
+            dependencies
+            dsh-runtime
+          # Deliberately absent: auto-merge. §28 keeps the final decision manual.
