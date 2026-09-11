@@ -227,3 +227,73 @@ test('semver helpers keep their contract', () => {
 	assert.ok(!satisfiesRange('4.0.2-rc.1', '^4.0.1'), 'a prerelease never satisfies a plain range');
 	assert.equal(parseVersion('nonsense'), null);
 });
+
+const WORKFLOW_DIR = join(ROOT, '.github', 'workflows');
+
+/** Every `run:` block in every workflow, as the runner would receive it. */
+function workflowRunBlocks() {
+	const blocks = [];
+	for (const file of readdirSync(WORKFLOW_DIR).filter((f) => /\.ya?ml$/.test(f))) {
+		const lines = readFileSync(join(WORKFLOW_DIR, file), 'utf8').split(/\r?\n/);
+		lines.forEach((line, index) => {
+			if (!/^\s*run: \|\s*$/.test(line)) return;
+
+			// A block scalar strips the common indentation, so the script the
+			// runner sees is de-indented by the first non-blank line's indent.
+			let indent = -1;
+			for (let i = index + 1; i < lines.length; i++) {
+				if (lines[i].trim() === '') continue;
+				indent = lines[i].length - lines[i].trimStart().length;
+				break;
+			}
+			if (indent === -1) return;
+
+			const body = [];
+			for (let i = index + 1; i < lines.length; i++) {
+				if (lines[i].trim() !== '' && lines[i].length - lines[i].trimStart().length < indent) break;
+				body.push(lines[i].slice(indent));
+			}
+			blocks.push({ file, line: index + 1, body });
+		});
+	}
+	return blocks;
+}
+
+test('workflow here-strings close in column zero', () => {
+	// YAML strips the block indentation before the runner executes the script,
+	// so a closing `'@` that is indented in the YAML source is fine — but only
+	// if its indent equals the block indent. Get that wrong and the step dies at
+	// runtime, and only on the path that uses it: the alpha-channel caveat in
+	// check-dsh-update.yml, which runs last and least.
+	const blocks = workflowRunBlocks();
+	assert.ok(blocks.length > 0, 'no run blocks found — the workflow files moved?');
+
+	let checked = 0;
+	for (const { file, line, body } of blocks) {
+		const open = body.findIndex((l) => l.trim().endsWith("@'"));
+		if (open === -1) continue;
+		checked++;
+		const close = body.findIndex((l, i) => i > open && l.trim() === "'@");
+		assert.notEqual(close, -1, `${file}:${line} opens a here-string but never closes it`);
+		const closeIndent = body[close].length - body[close].trimStart().length;
+		assert.equal(
+			closeIndent,
+			0,
+			`${file}:${line} closes the here-string at indent ${closeIndent}; it must be column 0`,
+		);
+	}
+	assert.ok(checked > 0, 'no here-string found — did check-dsh-update.yml change shape?');
+});
+
+test('workflow actions are pinned to a version, not a branch', () => {
+	// A floating `@main` would let upstream change what runs in this repository
+	// without a commit here. Every `uses:` must name a tag or a digest.
+	const offenders = [];
+	for (const file of readdirSync(WORKFLOW_DIR).filter((f) => /\.ya?ml$/.test(f))) {
+		const text = readFileSync(join(WORKFLOW_DIR, file), 'utf8');
+		for (const [, ref] of text.matchAll(/uses:\s*\S+@(\S+)/g)) {
+			if (!/^v\d/.test(ref) && !/^[0-9a-f]{40}$/.test(ref)) offenders.push(`${file}: @${ref}`);
+		}
+	}
+	assert.deepEqual(offenders, [], `unpinned action refs: ${offenders.join(', ')}`);
+});
