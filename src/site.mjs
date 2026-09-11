@@ -69,9 +69,19 @@ export function prepareSite({ webServer, clientModules, wwwDir, scheme = 'file' 
 		filter: (src) => src !== distIndex,
 	});
 
-	// Official index pipeline: boot manifest (client-modules) + theme tap.
+	// Official index pipeline: the plugin injection table (client-modules boot
+	// manifest, theme bootstrap, connection shim) followed by any raw taps.
+	//
+	// dsh >= 0.1.5-rc.2 moved the boot manifest out of `tapIndex` and into a
+	// structured `webserver/index-inject` row table rendered by `renderIndex`.
+	// Calling only `applyIndexTaps` there produces a byte-identical index.html
+	// with no `<script>` for the module loader — the renderer then dies with
+	// "window.__ModuleLoader__ bootstrap facade is missing". Prefer the new
+	// renderer and fall back for older runtimes.
 	let html = readFileSync(distIndex, 'utf8');
-	html = webServer.applyIndexTaps(html);
+	html = typeof webServer.renderIndex === 'function'
+		? webServer.renderIndex(html)
+		: webServer.applyIndexTaps(html);
 
 	if (scheme === 'file') {
 		// file:// has a null origin: rebase every absolute URL to relative.
@@ -79,12 +89,20 @@ export function prepareSite({ webServer, clientModules, wwwDir, scheme = 'file' 
 		html = html.replace(/href="\/favicon\.svg"/g, 'href="./favicon.svg"');
 		html = html.replace(/href="\/manifest\.webmanifest"/g, 'href="./manifest.webmanifest"');
 		html = html.replace(/\/plugins\//g, './__plugins/');
+		// file URLs need no cache-busting query.
+		html = html.replace(/(client\.js)\?rev=[0-9a-f]{12}/g, '$1');
 	} else {
-		// app:// is a standard origin: keep absolute paths, just repoint bundles.
-		html = html.replace(/\/plugins\//g, '/__plugins/');
+		// app:// is a standard origin with a protocol handler that dispatches the
+		// `/plugins` prefix route straight to `clientModules`, so bundle URLs stay
+		// absolute and are served from the composed graph.
+		//
+		// Do NOT repoint them at the materialized `__plugins` tree. dsh >=
+		// 0.1.5-rc.2 advertises bundles as a combined request
+		// (`/plugins/??a/client.js,b/client.js&rev=…`). Rewriting the prefix — as
+		// the older one-file-per-module URLs allowed — yields `/__plugins/??…`,
+		// whose pathname no longer matches the `/plugins` route, so the module
+		// loader script 404s and the renderer never boots.
 	}
-	// file URLs need no cache-busting query.
-	html = html.replace(/(client\.js)\?rev=[0-9a-f]{12}/g, '$1');
 	writeFileSync(join(wwwDir, 'index.html'), html, 'utf8');
 
 	// Materialize plugin bundles next to the site.

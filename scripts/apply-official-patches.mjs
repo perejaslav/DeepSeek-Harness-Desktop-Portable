@@ -1,16 +1,26 @@
 /**
  * Apply official upstream fixes to the bundled dsh packages.
  *
- * Currently one patch, mirroring the official deepseek-harness master fix for
- * the persistent-bash 3.5s prompt mismatch (published rc.6/rc.7 still carry
- * the bug):
+ * ---------------------------------------------------------------------------
+ * RETIRED PATCH (classification: UPSTREAM FIXED -> REMOVE)
+ * ---------------------------------------------------------------------------
+ * 0.6.2 shipped one patch against `dsh-tool-bash-persistent`, mirroring the
+ * official deepseek-harness master fix for the persistent-bash 3.5s prompt
+ * mismatch:
  *
- *   dsh-tool-bash-persistent used to override PS1 to a private prompt
- *   (__DSH_PERSISTENT_BASH_PROMPT__) while dsh-terminal-bash waits for its own
- *   CONTROLLED_PROMPT ("dsh> "). The mismatch meant prompt-based readiness
+ *   The package overrode PS1 to a private prompt
+ *   (`__DSH_PERSISTENT_BASH_PROMPT__`) while `dsh-terminal-bash` waits for its
+ *   own CONTROLLED_PROMPT ("dsh> "). The mismatch meant prompt-based readiness
  *   never fired and every command fell back to the 3.5s idle-silence settle.
- *   Master keeps the backend's own prompt (`stty -echo` only), so detection
- *   works and simple commands settle in milliseconds.
+ *
+ * @deepseek-ai/dsh-tool-bash-persistent@0.1.5-rc.2 already ships that fix
+ * upstream (verified against the published tarball: no `SHELL_PROMPT` /
+ * `slice(0, -31)` / `PS1=` override remains; the backend keeps its own prompt
+ * and only runs `stty -echo`). The patch is therefore removed — applying it
+ * would only emit "pattern not found" warnings.
+ *
+ * The mechanism is kept so future patches have a home, and UPSTREAM_ASSERTIONS
+ * below fails loudly if a later DSH release regresses on a fix we rely on.
  *
  * Runs idempotently from postinstall/predist; safe to run repeatedly.
  *
@@ -22,15 +32,20 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-const PATCHES = [
+/** Active patches. Empty: every 0.6.2 patch has been fixed upstream. */
+const PATCHES = [];
+
+/**
+ * Fixes we depend on but no longer patch. Each entry asserts the upstream code
+ * still looks the way the fix left it; a miss means upstream regressed and the
+ * patch must be reinstated (see git history for the 0.6.2 replacements).
+ */
+const UPSTREAM_ASSERTIONS = [
 	{
 		target: join(ROOT, 'node_modules', '@deepseek-ai', 'dsh-tool-bash-persistent', 'lib', 'index.js'),
-		description: 'persistent-bash: keep the backend prompt so readiness detection fires',
-		replacements: [
-			['const SHELL_PROMPT = "__DSH_PERSISTENT_BASH_PROMPT__ ";', 'const SHELL_PROMPT = "dsh> ";'],
-			['result = result.slice(0, -31)', 'result = result.slice(0, -6)'],
-			['text: `stty -echo; PS1=${quoteForBash(SHELL_PROMPT)}`,', "text: 'stty -echo',"],
-		],
+		description: 'persistent-bash: no private PS1 override (fixed upstream in 0.1.5-rc.2)',
+		mustBeAbsent: ['__DSH_PERSISTENT_BASH_PROMPT__', 'result = result.slice(0, -31)'],
+		mustBePresent: ['stty -echo'],
 	},
 ];
 
@@ -64,4 +79,31 @@ for (const patch of PATCHES) {
 		console.log(`[patch] already up to date: ${patch.description}`);
 	}
 }
+
+let regressed = 0;
+for (const check of UPSTREAM_ASSERTIONS) {
+	let source;
+	try {
+		source = readFileSync(check.target, 'utf8');
+	} catch {
+		console.log(`[patch] assertion skipped (not installed yet): ${check.description}`);
+		continue;
+	}
+	const stale = (check.mustBeAbsent ?? []).filter((needle) => source.includes(needle));
+	const missing = (check.mustBePresent ?? []).filter((needle) => !source.includes(needle));
+	if (stale.length === 0 && missing.length === 0) {
+		console.log(`[patch] upstream fix verified: ${check.description}`);
+		continue;
+	}
+	regressed += 1;
+	if (stale.length > 0) {
+		console.warn(`[patch] UPSTREAM REGRESSION in ${check.target}: found ${stale.map((s) => `"${s}"`).join(', ')}`);
+	}
+	if (missing.length > 0) {
+		console.warn(`[patch] UPSTREAM REGRESSION in ${check.target}: missing ${missing.map((s) => `"${s}"`).join(', ')}`);
+	}
+	console.warn('[patch] → reinstate the matching entry in PATCHES (see git history for 0.6.2 replacements).');
+}
+
 if (changed) console.log('[patch] done — node_modules patched (fresh npm ci re-applies via postinstall).');
+if (regressed > 0) console.warn(`[patch] ${regressed} upstream fix(es) regressed — review before shipping.`);

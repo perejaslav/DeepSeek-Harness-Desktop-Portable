@@ -14,12 +14,18 @@
  * glue and the directory-picker chooser read those as composition facts.
  */
 
+import { renderIndexInjections } from '@deepseek-ai/dsh-host-webserver';
+
 export function createIpcWebServer() {
 	const exact = new Map();
 	const prefixes = new Map();
 	const upgrades = new Map();
 	const indexTaps = [];
 	let fallback;
+	// The host context is attached after boot (see `attachContext`), because the
+	// stub is constructed before the composition exists. `renderIndex` needs it
+	// to emit `webserver/index-inject` and collect the plugin rows.
+	let hostCtx = null;
 
 	return {
 		/** No socket ever binds: port 0 is the honest composition fact. */
@@ -29,6 +35,21 @@ export function createIpcWebServer() {
 		/** Loopback literal keeps the directory picker on the native backend. */
 		get host() {
 			return '127.0.0.1';
+		},
+
+		/**
+		 * Bind the host context that owns the `webserver/index-inject` event.
+		 *
+		 * dsh >= 0.1.5-rc.2 builds the index in two layers: a structured
+		 * injection table contributed by plugins (client modules, theme,
+		 * connection bootstrap) and the legacy raw `tapIndex` transforms. The
+		 * table is gathered by emitting an event on the host context, so the
+		 * stub cannot render a working index without it.
+		 *
+		 * @param {object} ctx the booted host context.
+		 */
+		attachContext(ctx) {
+			hostCtx = ctx;
 		},
 
 		register(route) {
@@ -74,6 +95,33 @@ export function createIpcWebServer() {
 			let out = html;
 			for (const transform of indexTaps) out = transform(out);
 			return out;
+		},
+
+		/**
+		 * Gather the structured injection table: one `webserver/index-inject`
+		 * emit, every subscriber pushing its current rows. Mirrors the shipped
+		 * WebServer so plugins that contribute rows (dsh-client-modules,
+		 * dsh-client-connection, dsh-client-ui-theme) behave identically.
+		 *
+		 * @returns {object[]} rows in subscriber activation order.
+		 */
+		collectIndexInjections() {
+			if (hostCtx === null) return [];
+			const table = [];
+			hostCtx.emit('webserver/index-inject', table);
+			return table;
+		},
+
+		/**
+		 * Render one index.html body: the structured injection table first, then
+		 * the raw `tapIndex` transforms over the result — the same order the
+		 * shipped WebServer uses.
+		 *
+		 * @param {string} html the raw index.html body.
+		 * @returns {string} the transformed body.
+		 */
+		renderIndex(html) {
+			return this.applyIndexTaps(renderIndexInjections(html, this.collectIndexInjections()));
 		},
 
 		/** Exact lookup in the upgrade table (WebSocket upgrade paths). */

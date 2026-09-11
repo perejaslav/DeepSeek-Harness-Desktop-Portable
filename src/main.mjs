@@ -34,7 +34,7 @@ import { createTray } from './tray.mjs';
 import { installUpdater } from './updates.mjs';
 import { runNpm } from './npm-runner.mjs';
 import { addPlugins, removePlugin, dshBinPath } from './dsh-runner.mjs';
-import { overlayAnchor, overlayVersion, bundledDshVersion, activeDshVersion, checkLatestDsh, installDshOverlay, rollbackDshOverlay } from './dsh-overlay.mjs';
+import { overlayAnchor, overlayVersion, bundledDshVersion, activeDshVersion, checkLatestDsh, compareVersions, installDshOverlay, rollbackDshOverlay } from './dsh-overlay.mjs';
 
 // ---------------------------------------------------------------------------
 // Community-plugin CLI forwarding: plugins such as the plugin store install
@@ -555,7 +555,7 @@ function installChromeIpc() {
 					dialog.showMessageBoxSync(getWindow(), { type: 'warning', title: APP_NAME, message: '检查失败', detail: '无法查询官方 @deepseek-ai/dsh 版本（npm 网络不可达？）', buttons: ['确定'], noLink: true });
 					return true;
 				}
-				if (latest === current) {
+				if (compareVersions(latest, current) <= 0) {
 					dialog.showMessageBoxSync(getWindow(), { type: 'info', title: APP_NAME, message: 'dsh 已是最新', detail: `当前 ${current}（官方最新 ${latest}）`, buttons: ['确定'], noLink: true });
 					return true;
 				}
