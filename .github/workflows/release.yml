@@ -52,13 +52,7 @@ jobs:
 
       - name: Verify the bundle carries the pinned runtime
         shell: pwsh
-        run: |
-          $manifest = Get-Content dsh-runtime.json -Raw | ConvertFrom-Json
-          $bundled = Get-Content release/win-unpacked/resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh/package.json -Raw | ConvertFrom-Json
-          if ($bundled.version -ne $manifest.version) {
-            throw "packaged runtime is $($bundled.version), manifest pins $($manifest.version)"
-          }
-          Write-Output "packaged dsh $($bundled.version) matches the manifest"
+        run: ./scripts/verify-bundle-runtime.ps1 -OutDir release
 
       - name: List artifacts
         shell: pwsh

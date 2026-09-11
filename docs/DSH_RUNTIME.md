@@ -295,7 +295,15 @@ node -p "require('./release/win-unpacked/resources/app.asar.unpacked/node_module
 ```
 
 It must equal `dsh-runtime.json`'s `version`. Both the release and the
-windows-build workflows assert exactly this.
+windows-build workflows assert exactly this, by calling the same script:
+
+```powershell
+./scripts/verify-bundle-runtime.ps1 -OutDir release
+```
+
+It exits non-zero with a readable message when the output directory holds no
+packaged runtime or when its version disagrees with the manifest, so it can be
+run by hand against any `directories.output` value.
 
 ### Packaging notes
 
